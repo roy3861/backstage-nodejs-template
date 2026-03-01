@@ -1,0 +1,202 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: nodejs-backend-template
+  title: Node.js Backend Application
+  description: |
+    Scaffolds a production-ready Node.js backend with modular architecture
+    including API (Express), Database (SQL/NoSQL), Pub/Sub, Helm chart, and
+    CI/CD pipelines with security scanning.
+  tags:
+    - nodejs
+    - typescript
+    - backend
+    - recommended
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: platform-engineering
+  type: service
+
+  parameters:
+    - title: Application Info
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Unique name of the service
+          pattern: "^[a-z0-9-]+$"
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: A brief description of the service
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this service
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Runtime Configuration
+      required:
+        - nodeVersion
+        - port
+      properties:
+        nodeVersion:
+          title: Node.js Version
+          type: string
+          description: Node.js runtime version
+          default: "20"
+          enum:
+            - "18"
+            - "20"
+            - "22"
+          enumNames:
+            - "18 LTS"
+            - "20 LTS (Recommended)"
+            - "22 LTS"
+        port:
+          title: Application Port
+          type: number
+          description: Port the application listens on
+          default: 3000
+
+    - title: Database Configuration
+      properties:
+        sqlDatabase:
+          title: SQL Database
+          type: string
+          description: SQL database engine
+          default: none
+          enum:
+            - none
+            - postgresql
+            - mysql
+          enumNames:
+            - None
+            - PostgreSQL
+            - MySQL
+        nosqlDatabase:
+          title: NoSQL Database
+          type: string
+          description: NoSQL database engine
+          default: none
+          enum:
+            - none
+            - mongodb
+            - redis
+          enumNames:
+            - None
+            - MongoDB
+            - Redis (as data store)
+
+    - title: Pub/Sub Configuration
+      properties:
+        pubsubProvider:
+          title: Pub/Sub Provider
+          type: string
+          description: Message broker for event-driven architecture
+          default: none
+          enum:
+            - none
+            - kafka
+            - redis
+            - rabbitmq
+          enumNames:
+            - None
+            - Apache Kafka
+            - Redis Pub/Sub
+            - RabbitMQ
+
+    - title: CI/CD & Deployment
+      required:
+        - artifactRegistry
+      properties:
+        artifactRegistry:
+          title: Artifact Registry
+          type: string
+          description: Container registry to push Docker images and Helm charts
+          default: ghcr
+          enum:
+            - ghcr
+            - dockerhub
+            - ecr
+            - gcr
+            - acr
+          enumNames:
+            - GitHub Container Registry (GHCR)
+            - Docker Hub
+            - AWS ECR
+            - Google Container Registry (GCR)
+            - Azure Container Registry (ACR)
+        enableHpa:
+          title: Enable Horizontal Pod Autoscaler
+          type: boolean
+          description: Include HPA in the Helm chart
+          default: true
+
+    - title: Repository Location
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          nodeVersion: ${{ parameters.nodeVersion }}
+          port: ${{ parameters.port }}
+          sqlDatabase: ${{ parameters.sqlDatabase }}
+          nosqlDatabase: ${{ parameters.nosqlDatabase }}
+          pubsubProvider: ${{ parameters.pubsubProvider }}
+          artifactRegistry: ${{ parameters.artifactRegistry }}
+          enableHpa: ${{ parameters.enableHpa }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts:
+          - github.com
+        repoUrl: ${{ parameters.repoUrl }}
+        description: ${{ parameters.description }}
+        defaultBranch: main
+        repoVisibility: private
+        requireCodeOwnerReviews: true
+        deleteBranchOnMerge: true
+        protectDefaultBranch: true
+
+    - id: register
+      name: Register in Backstage Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Backstage Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

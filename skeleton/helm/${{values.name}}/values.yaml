@@ -1,0 +1,100 @@
+# -- Number of replicas
+replicaCount: 2
+
+image:
+{% if values.artifactRegistry == 'ghcr' -%}
+  repository: ghcr.io/OWNER/${{ values.name }}
+{% elif values.artifactRegistry == 'dockerhub' -%}
+  repository: DOCKERHUB_USER/${{ values.name }}
+{% elif values.artifactRegistry == 'ecr' -%}
+  repository: AWS_ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/${{ values.name }}
+{% elif values.artifactRegistry == 'gcr' -%}
+  repository: gcr.io/GCP_PROJECT/${{ values.name }}
+{% elif values.artifactRegistry == 'acr' -%}
+  repository: ACR_NAME.azurecr.io/${{ values.name }}
+{% endif -%}
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: ${{ values.port }}
+
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: ${{ values.name }}.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+{% if values.enableHpa -%}
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: 80
+{% else -%}
+autoscaling:
+  enabled: false
+{% endif -%}
+
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 15
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+env: {}
+  # NODE_ENV: production
+  # LOG_LEVEL: info
+
+secrets: {}
+  # SQL_PASSWORD: ""
+  # REDIS_PASSWORD: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

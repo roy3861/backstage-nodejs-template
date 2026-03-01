@@ -1,0 +1,49 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner + "/" + values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - nodejs
+    - typescript
+{%- if values.sqlDatabase != 'none' %}
+    - ${{ values.sqlDatabase }}
+{%- endif %}
+{%- if values.nosqlDatabase != 'none' %}
+    - ${{ values.nosqlDatabase }}
+{%- endif %}
+{%- if values.pubsubProvider != 'none' %}
+    - ${{ values.pubsubProvider }}
+{%- endif %}
+spec:
+  type: service
+  lifecycle: production
+  owner: ${{ values.owner }}
+  system: ${{ values.name }}
+  providesApis:
+    - ${{ values.name }}-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: ${{ values.name }}-api
+  description: REST API for ${{ values.name }}
+spec:
+  type: openapi
+  lifecycle: production
+  owner: ${{ values.owner }}
+  definition: |
+    openapi: "3.0.0"
+    info:
+      title: ${{ values.name }} API
+      version: "1.0.0"
+    paths:
+      /health:
+        get:
+          summary: Health check
+          responses:
+            '200':
+              description: OK

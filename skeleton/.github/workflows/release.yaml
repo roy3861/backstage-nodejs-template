@@ -1,0 +1,137 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+env:
+  NODE_VERSION: "${{ values.nodeVersion }}"
+{% if values.artifactRegistry == 'ghcr' %}
+  REGISTRY: ghcr.io
+  IMAGE_NAME: {% raw %}${{ github.repository }}{% endraw %}
+{% elif values.artifactRegistry == 'dockerhub' %}
+  REGISTRY: docker.io
+  IMAGE_NAME: {% raw %}${{ secrets.DOCKERHUB_USERNAME }}{% endraw %}/${{ values.name }}
+{% elif values.artifactRegistry == 'ecr' %}
+  REGISTRY: {% raw %}${{ secrets.AWS_ACCOUNT_ID }}{% endraw %}.dkr.ecr.{% raw %}${{ secrets.AWS_REGION }}{% endraw %}.amazonaws.com
+  IMAGE_NAME: ${{ values.name }}
+{% elif values.artifactRegistry == 'gcr' %}
+  REGISTRY: gcr.io
+  IMAGE_NAME: {% raw %}${{ secrets.GCP_PROJECT_ID }}{% endraw %}/${{ values.name }}
+{% elif values.artifactRegistry == 'acr' %}
+  REGISTRY: {% raw %}${{ secrets.ACR_LOGIN_SERVER }}{% endraw %}
+  IMAGE_NAME: ${{ values.name }}
+{% endif %}
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: {% raw %}${{ env.NODE_VERSION }}{% endraw %}
+          cache: npm
+
+      - name: Install & Test
+        run: |
+          npm ci
+          npm test
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+{% if values.artifactRegistry == 'ghcr' %}
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: {% raw %}${{ github.actor }}{% endraw %}
+          password: {% raw %}${{ secrets.GITHUB_TOKEN }}{% endraw %}
+{% elif values.artifactRegistry == 'dockerhub' %}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: {% raw %}${{ secrets.DOCKERHUB_USERNAME }}{% endraw %}
+          password: {% raw %}${{ secrets.DOCKERHUB_TOKEN }}{% endraw %}
+{% elif values.artifactRegistry == 'ecr' %}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: {% raw %}${{ secrets.AWS_ACCESS_KEY_ID }}{% endraw %}
+          aws-secret-access-key: {% raw %}${{ secrets.AWS_SECRET_ACCESS_KEY }}{% endraw %}
+          aws-region: {% raw %}${{ secrets.AWS_REGION }}{% endraw %}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+{% elif values.artifactRegistry == 'gcr' %}
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: {% raw %}${{ secrets.GCP_SA_KEY }}{% endraw %}
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker gcr.io --quiet
+{% elif values.artifactRegistry == 'acr' %}
+      - name: Log in to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: {% raw %}${{ secrets.ACR_LOGIN_SERVER }}{% endraw %}
+          username: {% raw %}${{ secrets.ACR_USERNAME }}{% endraw %}
+          password: {% raw %}${{ secrets.ACR_PASSWORD }}{% endraw %}
+{% endif %}
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            {% raw %}${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}{% endraw %}
+            {% raw %}${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest{% endraw %}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+
+      - name: Package and push Helm chart
+        run: |
+          helm package ./helm/${{ values.name }} \
+            --version {% raw %}${{ steps.version.outputs.VERSION }}{% endraw %} \
+            --app-version {% raw %}${{ steps.version.outputs.VERSION }}{% endraw %} \
+            --destination .helm-packages/
+{% if values.artifactRegistry == 'ghcr' %}
+          echo {% raw %}${{ secrets.GITHUB_TOKEN }}{% endraw %} | helm registry login ghcr.io --username {% raw %}${{ github.actor }}{% endraw %} --password-stdin
+          helm push .helm-packages/*.tgz oci://ghcr.io/{% raw %}${{ github.repository_owner }}{% endraw %}/charts
+{% elif values.artifactRegistry == 'dockerhub' %}
+          echo {% raw %}${{ secrets.DOCKERHUB_TOKEN }}{% endraw %} | helm registry login registry-1.docker.io --username {% raw %}${{ secrets.DOCKERHUB_USERNAME }}{% endraw %} --password-stdin
+          helm push .helm-packages/*.tgz oci://registry-1.docker.io/{% raw %}${{ secrets.DOCKERHUB_USERNAME }}{% endraw %}
+{% elif values.artifactRegistry == 'ecr' %}
+          aws ecr get-login-password --region {% raw %}${{ secrets.AWS_REGION }}{% endraw %} | helm registry login --username AWS --password-stdin {% raw %}${{ env.REGISTRY }}{% endraw %}
+          helm push .helm-packages/*.tgz oci://{% raw %}${{ env.REGISTRY }}{% endraw %}
+{% elif values.artifactRegistry == 'gcr' %}
+          gcloud auth print-access-token | helm registry login gcr.io --username oauth2accesstoken --password-stdin
+          helm push .helm-packages/*.tgz oci://gcr.io/{% raw %}${{ secrets.GCP_PROJECT_ID }}{% endraw %}/charts
+{% elif values.artifactRegistry == 'acr' %}
+          echo {% raw %}${{ secrets.ACR_PASSWORD }}{% endraw %} | helm registry login {% raw %}${{ secrets.ACR_LOGIN_SERVER }}{% endraw %} --username {% raw %}${{ secrets.ACR_USERNAME }}{% endraw %} --password-stdin
+          helm push .helm-packages/*.tgz oci://{% raw %}${{ secrets.ACR_LOGIN_SERVER }}{% endraw %}/charts
+{% endif %}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          generate_release_notes: true
+          draft: false
+          prerelease: false
