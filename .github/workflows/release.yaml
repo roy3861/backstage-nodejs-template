@@ -28,11 +28,20 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install & Test
+        env:
+          NPM_CONFIG_PRODUCTION: "false"
+          NPM_CONFIG_OMIT: ""
         run: |
+          npm config set production false
+          npm config delete omit || true
           if [ -f package-lock.json ]; then
             npm ci --include=dev
           else
             echo "package-lock.json not found, falling back to npm install"
+            npm install --include=dev
+          fi
+          if [ ! -x node_modules/.bin/jest ]; then
+            echo "jest missing after install; forcing dev dependency install"
             npm install --include=dev
           fi
           npm test
