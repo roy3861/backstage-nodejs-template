@@ -32,10 +32,10 @@ jobs:
       - name: Install dependencies
         run: |
           if [ -f package-lock.json ]; then
-            npm ci
+            npm ci --include=dev
           else
             echo "package-lock.json not found, falling back to npm install"
-            npm install
+            npm install --include=dev
           fi
 
       - name: Lint
@@ -72,10 +72,10 @@ jobs:
       - name: Install dependencies
         run: |
           if [ -f package-lock.json ]; then
-            npm ci
+            npm ci --include=dev
           else
             echo "package-lock.json not found, falling back to npm install"
-            npm install
+            npm install --include=dev
           fi
 
       - name: NPM Audit
