@@ -246,7 +246,7 @@ EXPOSE 8080                          # ← port
 # ... HEALTHCHECK also references the port
 ```
 
-#### 11. `helm/order-api/` (renamed directory)
+#### 11. `helm/example-service/`
 - **`Chart.yaml`**: Update `name` and `maintainers`.
 - **`values.yaml`**: Update `image.repository`, `service.port`, and `ingress.hosts`.
 - **Templates** (`_helpers.tpl`, `deployment.yaml`, etc.): Replace `example-service` with your service name in all `define`/`include` references.
