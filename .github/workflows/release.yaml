@@ -29,10 +29,8 @@ jobs:
 
       - name: Install & Test
         env:
-          NPM_CONFIG_PRODUCTION: "false"
           NPM_CONFIG_OMIT: ""
         run: |
-          npm config set production false
           npm config delete omit || true
           if [ -f package-lock.json ]; then
             npm ci --include=dev
