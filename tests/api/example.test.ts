@@ -6,7 +6,7 @@ describe('Health Endpoints', () => {
     const res = await request(app).get('/health');
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('status', 'ok');
-    expect(res.body).toHaveProperty('service', '${{ values.name }}');
+    expect(res.body).toHaveProperty('service', 'example-service');
   });
 
   it('GET /health/ready should return ready', async () => {

@@ -1,4 +1,3 @@
-{% if values.pubsubProvider == 'kafka' -%}
 import { Kafka, Consumer, EachMessagePayload } from 'kafkajs';
 import { pubsubConfig } from '../../config/pubsub';
 import { logger } from '../../utils/logger';
@@ -65,6 +64,3 @@ export class KafkaConsumer {
     logger.info('Kafka consumer disconnected');
   }
 }
-{% else -%}
-export {};
-{% endif -%}

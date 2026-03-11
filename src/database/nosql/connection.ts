@@ -1,4 +1,3 @@
-{% if values.nosqlDatabase == 'mongodb' -%}
 import mongoose from 'mongoose';
 import { databaseConfig } from '../../config/database';
 import { logger } from '../../utils/logger';
@@ -28,7 +27,3 @@ export async function closeMongo(): Promise<void> {
   await mongoose.disconnect();
   logger.info('MongoDB connection closed');
 }
-{% else -%}
-// MongoDB not configured. Re-run Backstage template to enable.
-export {};
-{% endif -%}

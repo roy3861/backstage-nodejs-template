@@ -1,4 +1,3 @@
-{% if values.sqlDatabase != 'none' -%}
 import knex, { Knex } from 'knex';
 import { databaseConfig } from '../../config/database';
 import { logger } from '../../utils/logger';
@@ -42,7 +41,3 @@ export async function closeSqlConnection(): Promise<void> {
     logger.info('SQL database connection closed');
   }
 }
-{% else -%}
-// SQL database not configured. Re-run Backstage template to enable.
-export {};
-{% endif -%}

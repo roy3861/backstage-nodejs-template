@@ -1,3 +1,4 @@
+# Used for Backstage Software Catelog
 apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
@@ -115,6 +116,34 @@ spec:
             - Redis Pub/Sub
             - RabbitMQ
 
+    - title: Optional Enterprise Modules
+      properties:
+        enableResilience:
+          title: Enable Resilience Module
+          type: boolean
+          description: Include timeouts/retries/circuit-breaker scaffolding
+          default: false
+        enableIntegrations:
+          title: Enable Integrations Module
+          type: boolean
+          description: Include typed external API client scaffolding
+          default: false
+        enableJobs:
+          title: Enable Jobs Module
+          type: boolean
+          description: Include background scheduler scaffolding
+          default: false
+        enableCache:
+          title: Enable Cache Module
+          type: boolean
+          description: Include in-memory cache scaffolding
+          default: false
+        enableAuthz:
+          title: Enable Authorization Module
+          type: boolean
+          description: Include RBAC/policy guard scaffolding
+          default: false
+
     - title: CI/CD & Deployment
       required:
         - artifactRegistry
@@ -172,6 +201,11 @@ spec:
           sqlDatabase: ${{ parameters.sqlDatabase }}
           nosqlDatabase: ${{ parameters.nosqlDatabase }}
           pubsubProvider: ${{ parameters.pubsubProvider }}
+          enableResilience: ${{ parameters.enableResilience }}
+          enableIntegrations: ${{ parameters.enableIntegrations }}
+          enableJobs: ${{ parameters.enableJobs }}
+          enableCache: ${{ parameters.enableCache }}
+          enableAuthz: ${{ parameters.enableAuthz }}
           artifactRegistry: ${{ parameters.artifactRegistry }}
           enableHpa: ${{ parameters.enableHpa }}
 

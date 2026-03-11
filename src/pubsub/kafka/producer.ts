@@ -1,4 +1,3 @@
-{% if values.pubsubProvider == 'kafka' -%}
 import { Kafka, Producer, ProducerRecord } from 'kafkajs';
 import { pubsubConfig } from '../../config/pubsub';
 import { logger } from '../../utils/logger';
@@ -44,6 +43,3 @@ export class KafkaProducer {
     logger.info('Kafka producer disconnected');
   }
 }
-{% else -%}
-export {};
-{% endif -%}

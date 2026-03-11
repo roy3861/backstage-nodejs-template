@@ -1,4 +1,3 @@
-{% if values.nosqlDatabase == 'mongodb' -%}
 import mongoose from 'mongoose';
 import { exampleSchema, IExample } from '../schemas/example.schema';
 
@@ -10,11 +9,11 @@ const ExampleDocument = mongoose.model<IExample>('Example', exampleSchema);
  */
 export class ExampleNoSqlModel {
   async findAll(): Promise<IExample[]> {
-    return ExampleDocument.find().sort({ createdAt: -1 }).lean();
+    return ExampleDocument.find().sort({ createdAt: -1 });
   }
 
   async findById(id: string): Promise<IExample | null> {
-    return ExampleDocument.findById(id).lean();
+    return ExampleDocument.findById(id);
   }
 
   async create(data: Pick<IExample, 'name' | 'description'>): Promise<IExample> {
@@ -23,7 +22,7 @@ export class ExampleNoSqlModel {
   }
 
   async update(id: string, data: Partial<Pick<IExample, 'name' | 'description'>>): Promise<IExample | null> {
-    return ExampleDocument.findByIdAndUpdate(id, data, { new: true }).lean();
+    return ExampleDocument.findByIdAndUpdate(id, data, { new: true });
   }
 
   async delete(id: string): Promise<boolean> {
@@ -31,6 +30,3 @@ export class ExampleNoSqlModel {
     return !!result;
   }
 }
-{% else -%}
-export {};
-{% endif -%}

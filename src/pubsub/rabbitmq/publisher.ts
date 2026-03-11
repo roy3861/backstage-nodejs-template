@@ -1,5 +1,4 @@
-{% if values.pubsubProvider == 'rabbitmq' -%}
-import amqplib, { Channel, Connection } from 'amqplib';
+import amqplib, { Channel, ChannelModel } from 'amqplib';
 import { pubsubConfig } from '../../config/pubsub';
 import { logger } from '../../utils/logger';
 
@@ -13,21 +12,24 @@ import { logger } from '../../utils/logger';
  *   await publisher.disconnect();
  */
 export class RabbitPublisher {
-  private connection: Connection | null = null;
+  private connection: ChannelModel | null = null;
   private channel: Channel | null = null;
   private exchange: string;
+  private url: string;
 
   constructor() {
-    this.exchange = pubsubConfig.rabbitmq!.exchange;
+    this.exchange = pubsubConfig.rabbitmq.exchange;
+    this.url = pubsubConfig.rabbitmq.url;
   }
 
   async connect(): Promise<void> {
-    const url = pubsubConfig.rabbitmq!.url;
+    const connection = await amqplib.connect(this.url);
+    const channel = await connection.createChannel();
 
-    this.connection = await amqplib.connect(url);
-    this.channel = await this.connection.createChannel();
+    this.connection = connection;
+    this.channel = channel;
 
-    await this.channel.assertExchange(this.exchange, 'topic', { durable: true });
+    await channel.assertExchange(this.exchange, 'topic', { durable: true });
     logger.info('RabbitMQ publisher connected', { exchange: this.exchange });
   }
 
@@ -50,6 +52,3 @@ export class RabbitPublisher {
     logger.info('RabbitMQ publisher disconnected');
   }
 }
-{% else -%}
-export {};
-{% endif -%}

@@ -1,44 +1,40 @@
+# Used for Backstage Catalog Integration
+
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: ${{ values.name }}
-  description: ${{ values.description }}
+  name: example-service
+  description: An example Node.js backend service
   annotations:
-    github.com/project-slug: ${{ values.destination.owner + "/" + values.destination.repo }}
+    github.com/project-slug: my-org/example-service
     backstage.io/techdocs-ref: dir:.
   tags:
     - nodejs
     - typescript
-{%- if values.sqlDatabase != 'none' %}
-    - ${{ values.sqlDatabase }}
-{%- endif %}
-{%- if values.nosqlDatabase != 'none' %}
-    - ${{ values.nosqlDatabase }}
-{%- endif %}
-{%- if values.pubsubProvider != 'none' %}
-    - ${{ values.pubsubProvider }}
-{%- endif %}
+    - postgresql
+    - mongodb
+    - kafka
 spec:
   type: service
   lifecycle: production
-  owner: ${{ values.owner }}
-  system: ${{ values.name }}
+  owner: platform-engineering
+  system: example-service
   providesApis:
-    - ${{ values.name }}-api
+    - example-service-api
 ---
 apiVersion: backstage.io/v1alpha1
 kind: API
 metadata:
-  name: ${{ values.name }}-api
-  description: REST API for ${{ values.name }}
+  name: example-service-api
+  description: REST API for example-service
 spec:
   type: openapi
   lifecycle: production
-  owner: ${{ values.owner }}
+  owner: platform-engineering
   definition: |
     openapi: "3.0.0"
     info:
-      title: ${{ values.name }} API
+      title: example-service API
       version: "1.0.0"
     paths:
       /health:

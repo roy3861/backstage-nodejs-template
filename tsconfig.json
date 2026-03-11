@@ -21,6 +21,11 @@
       "@database/*": ["src/database/*"],
       "@pubsub/*": ["src/pubsub/*"],
       "@services/*": ["src/services/*"],
+      "@resilience/*": ["src/resilience/*"],
+      "@integrations/*": ["src/integrations/*"],
+      "@jobs/*": ["src/jobs/*"],
+      "@cache/*": ["src/cache/*"],
+      "@authz/*": ["src/authz/*"],
       "@utils/*": ["src/utils/*"],
       "@types/*": ["src/types/*"]
     }

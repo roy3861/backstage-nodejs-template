@@ -1,4 +1,3 @@
-{% if values.pubsubProvider == 'redis' -%}
 import Redis from 'ioredis';
 import { pubsubConfig } from '../../config/pubsub';
 import { logger } from '../../utils/logger';
@@ -18,12 +17,13 @@ export class RedisSubscriber {
   private client: Redis;
 
   constructor() {
-    const redisConfig = pubsubConfig.redis!;
+    const redisConfig = pubsubConfig.redis;
 
     this.client = new Redis({
       host: redisConfig.host,
       port: redisConfig.port,
       password: redisConfig.password,
+      ...(redisConfig.tls && { tls: {} }),
     });
 
     this.client.on('connect', () => logger.info('Redis subscriber connected'));
@@ -46,6 +46,3 @@ export class RedisSubscriber {
     logger.info('Redis subscriber disconnected');
   }
 }
-{% else -%}
-export {};
-{% endif -%}

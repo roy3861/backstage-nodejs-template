@@ -1,8 +1,10 @@
-# Node.js Backend — Backstage Software Template
+# Node.js Backend Service
 
-A production-ready, modular **Node.js + TypeScript** backend scaffold designed to be deployed via [Backstage Software Templates](https://backstage.io/docs/features/software-templates/). It provides ready-to-go code for the most common backend concerns — REST APIs, SQL/NoSQL databases, Pub/Sub messaging, containerisation, Helm-based Kubernetes deployment, and CI/CD pipelines with security scanning — all wired up and configurable through environment variables.
+A production-ready, modular **Node.js + TypeScript** backend scaffold. It provides ready-to-go code for the most common backend concerns — REST APIs, SQL/NoSQL databases, Pub/Sub messaging, containerisation, Helm-based Kubernetes deployment, and CI/CD pipelines with security scanning — all wired up and configurable through environment variables.
 
 > **Developers only need to update `.env` and write their business logic.** The plumbing is already done.
+>
+> This repo can also be used as a [Backstage Software Template](https://backstage.io/docs/features/software-templates/) — see [`backstage/README.md`](backstage/README.md) for integration instructions.
 
 ---
 
@@ -10,10 +12,12 @@ A production-ready, modular **Node.js + TypeScript** backend scaffold designed t
 
 - [Repository Layout](#repository-layout)
 - [Quick Start](#quick-start)
-- [Backstage Integration](#backstage-integration)
-  - [Registering the Template](#registering-the-template)
-  - [Template Parameters](#template-parameters)
-  - [Fork Template](#fork-template)
+- [Customising Default Values](#customising-default-values)
+  - [Default Values Reference](#default-values-reference)
+  - [Step-by-Step: Rename the Service](#step-by-step-rename-the-service)
+  - [File-by-File Guide](#file-by-file-guide)
+  - [Module Feature Flags](#module-feature-flags)
+  - [Switching Database or Pub/Sub Provider](#switching-database-or-pubsub-provider)
 - [Component Deep-Dive](#component-deep-dive)
   - [1. Config Module (`src/config/`)](#1-config-module-srcconfig)
   - [2. API Module (`src/api/`)](#2-api-module-srcapi)
@@ -22,6 +26,7 @@ A production-ready, modular **Node.js + TypeScript** backend scaffold designed t
   - [5. Services Layer (`src/services/`)](#5-services-layer-srcservices)
   - [6. Utilities (`src/utils/`)](#6-utilities-srcutils)
   - [7. Types (`src/types/`)](#7-types-srctypes)
+  - [Optional Enterprise Modules](#optional-enterprise-modules)
   - [8. Tests (`tests/`)](#8-tests-tests)
 - [Infrastructure](#infrastructure)
   - [9. Dockerfile](#9-dockerfile)
@@ -43,9 +48,9 @@ A production-ready, modular **Node.js + TypeScript** backend scaffold designed t
 
 ```
 .
-├── backstage/                        # Backstage template definitions
+├── backstage/                        # Backstage template definitions (see backstage/README.md)
 │   ├── template.yaml                 #   Main software template (scaffolds new repos)
-│   └── fork-template.yaml            #   Fork template (forks this repo to an org)
+│   └── README.md                     #   Backstage integration guide
 │
 ├── src/                              # Application source code
 │   ├── index.ts                      #   Entry point — boots Express, DB, graceful shutdown
@@ -72,6 +77,11 @@ A production-ready, modular **Node.js + TypeScript** backend scaffold designed t
 │   │   ├── kafka/                    #     KafkaJS producer & consumer
 │   │   ├── redis/                    #     ioredis pub/sub
 │   │   └── rabbitmq/                 #     amqplib publisher & subscriber
+│   ├── resilience/                   #   Timeout / retry / circuit-breaker helpers
+│   ├── integrations/                 #   Typed external API clients
+│   ├── jobs/                         #   Background scheduler & sample worker
+│   ├── cache/                        #   In-memory cache abstraction
+│   ├── authz/                        #   RBAC/policy guard helpers
 │   ├── services/                     #   Business logic (use-case layer)
 │   ├── utils/                        #   Shared helpers (logger, error classes)
 │   └── types/                        #   Shared TypeScript interfaces
@@ -84,6 +94,7 @@ A production-ready, modular **Node.js + TypeScript** backend scaffold designed t
 ├── helm/<app-name>/                  # Kubernetes Helm chart
 │   ├── Chart.yaml
 │   ├── values.yaml
+│   ├── values-secret.yaml            #   SOPS-encrypted sensitive values
 │   └── templates/                    #   Deployment, Service, Ingress, HPA, ConfigMap, Secret
 │
 ├── .github/workflows/                # GitHub Actions CI/CD
@@ -91,6 +102,7 @@ A production-ready, modular **Node.js + TypeScript** backend scaffold designed t
 │   └── release.yaml                  #   Tag-triggered release pipeline
 │
 ├── catalog-info.yaml                 # Backstage catalog entity descriptor
+├── mkdocs.yml                        # TechDocs config (publishes docs in Backstage)
 ├── Dockerfile                        # Multi-stage production Docker image
 ├── package.json                      # NPM dependencies & scripts
 ├── tsconfig.json                     # TypeScript compiler options
@@ -125,59 +137,215 @@ curl http://localhost:3000/health
 
 ---
 
-## Backstage Integration
+## Customising Default Values
 
-### Registering the Template
+This repository ships with **example defaults** (`example-service`, port `3000`, GHCR) and pre-wired SQL/Mongo/Kafka/Redis/RabbitMQ integrations. Optional modules are disabled by default so the app can run without external dependencies.
 
-1. Push this repository to GitHub.
-2. In your Backstage `app-config.yaml`, add the template location:
+### Default Values Reference
 
-```yaml
-catalog:
-  locations:
-    # Main scaffolding template
-    - type: url
-      target: https://github.com/<your-org>/backstage-nodejs-template/blob/main/backstage/template.yaml
-      rules:
-        - allow: [Template]
+| Value | Default | Where It's Used |
+|---|---|---|
+| **Service name** | `example-service` | package.json, catalog-info.yaml, .env.example, Helm chart, CI/CD workflows, health routes, index.ts |
+| **Description** | `An example Node.js backend service` | package.json, catalog-info.yaml |
+| **Owner** | `platform-engineering` | catalog-info.yaml, Helm Chart.yaml |
+| **Node.js version** | `20` | Dockerfile, package.json (`engines`), CI/CD workflows |
+| **Port** | `3000` | .env.example, src/config/server.ts, Dockerfile, Helm values.yaml & configmap |
+| **SQL database** | `postgresql` (pg driver) | package.json, src/config/database.ts, src/database/sql/ |
+| **NoSQL database** | `mongodb` (Mongoose) | package.json, src/config/database.ts, src/database/nosql/ |
+| **Pub/Sub provider** | `kafka` (KafkaJS) | package.json, src/config/pubsub.ts, src/pubsub/kafka/ |
+| **Artifact registry** | `ghcr` (GitHub Container Registry) | CI/CD workflows, Helm values.yaml |
+| **GitHub org/repo** | `my-org/example-service` | catalog-info.yaml |
 
-    # Fork template (optional)
-    - type: url
-      target: https://github.com/<your-org>/backstage-nodejs-template/blob/main/backstage/fork-template.yaml
-      rules:
-        - allow: [Template]
+### Step-by-Step: Rename the Service
+
+Replace `example-service` with your service name (e.g. `order-api`) across the codebase:
+
+```bash
+# 1. Find all occurrences (preview before changing)
+grep -rn "example-service" --exclude-dir=backstage --exclude-dir=node_modules --exclude-dir=.git .
+
+# 2. Rename the Helm chart directory
+mv helm/example-service helm/order-api
+
+# 3. Global find-and-replace across all files (excluding backstage/)
+find . -type f \
+  -not -path './backstage/*' \
+  -not -path './.git/*' \
+  -not -path './node_modules/*' \
+  -exec sed -i 's/example-service/order-api/g' {} +
 ```
 
-3. Navigate to **Create** in Backstage and you'll see "Node.js Backend Application".
+### File-by-File Guide
 
-### Template Parameters
+Below is every file that contains a configurable default value and what to change:
 
-When a developer uses the template through Backstage, they choose from these options:
+#### 1. `package.json`
+```jsonc
+{
+  "name": "order-api",                  // ← service name
+  "description": "Order management API", // ← your description
+  "engines": { "node": ">=20.0.0" }     // ← node version if changing
+}
+```
 
-| Parameter | Options | Effect |
+#### 2. `.env.example`
+Update the application name, port, and database/messaging connection details:
+```bash
+APP_NAME=order-api
+PORT=8080
+SQL_DATABASE=order-api
+MONGO_URI=mongodb://localhost:27017/order-api
+KAFKA_CLIENT_ID=order-api
+KAFKA_GROUP_ID=order-api-group
+```
+
+#### 3. `catalog-info.yaml`
+```yaml
+metadata:
+  name: order-api                                    # ← service name
+  description: Order management API                  # ← description
+  annotations:
+    github.com/project-slug: my-org/order-api        # ← GitHub org/repo
+spec:
+  owner: my-team                                     # ← Backstage group
+```
+
+#### 4. `src/config/server.ts`
+```typescript
+name: process.env.APP_NAME || 'order-api',          // ← fallback name
+port: parseInt(process.env.PORT || '8080', 10),      // ← fallback port
+```
+
+#### 5. `src/config/database.ts`
+- **SQL client**: Change `'pg'` to `'mysql2'` if using MySQL; update the default port (`5432` → `3306`) and user (`postgres` → `root`).
+- **MongoDB URI**: Update the default database name.
+- **Redis**: If you need Redis, replace `redis: null` with a config block (see `.env.example` for fields).
+
+#### 6. `src/config/pubsub.ts`
+- **Switch provider**: Replace the `kafka` block with `redis` or `rabbitmq` config. See `src/pubsub/redis/` or `src/pubsub/rabbitmq/` for ready-to-use implementations.
+- **Update exports**: Adjust `src/pubsub/index.ts` to export the provider you chose.
+
+#### 7. `src/index.ts`
+- Update the startup log message (`🚀 order-api running on port ...`).
+- If you changed the database or removed one, update the imports and the `start()` / `shutdown()` functions accordingly.
+
+#### 8. `src/api/routes/health.routes.ts`
+```typescript
+service: 'order-api',  // ← service name in health response
+```
+
+#### 9. `tests/api/example.test.ts`
+```typescript
+expect(res.body).toHaveProperty('service', 'order-api');  // ← match health route
+```
+
+#### 10. `Dockerfile`
+```dockerfile
+FROM node:20 AS builder              # ← node version
+EXPOSE 8080                          # ← port
+# ... HEALTHCHECK also references the port
+```
+
+#### 11. `helm/order-api/` (renamed directory)
+- **`Chart.yaml`**: Update `name` and `maintainers`.
+- **`values.yaml`**: Update `image.repository`, `service.port`, and `ingress.hosts`.
+- **Templates** (`_helpers.tpl`, `deployment.yaml`, etc.): Replace `example-service` with your service name in all `define`/`include` references.
+- **`configmap.yaml`**: Update the `PORT` value.
+
+#### 12. `.github/workflows/ci.yaml` and `release.yaml`
+- Update `NODE_VERSION` if changing Node.js version.
+- Update `helm lint` / `helm package` paths to match your renamed Helm directory.
+- If switching from GHCR to another registry, update the `REGISTRY`, `IMAGE_NAME` env vars and the login/push steps (see the Backstage template parameters table for what each registry needs).
+
+### Module Feature Flags
+
+Modules can be **enabled or disabled at runtime** without changing code. Set these environment variables to `true` or `false`:
+
+| Variable | Default | Controls |
 |---|---|---|
-| **Name** | any `kebab-case` string | Sets service name across configs, Helm, Docker |
-| **Description** | free text | Package description, catalog metadata |
-| **Owner** | Backstage Group picker | Sets ownership in catalog-info.yaml |
-| **Node.js Version** | `18` · `20` (default) · `22` | Base Docker image, CI matrix, engines field |
-| **Port** | number (default `3000`) | Express listen port, Dockerfile EXPOSE, Helm |
-| **SQL Database** | `None` · `PostgreSQL` · `MySQL` | Includes Knex + driver, connection, models, migrations |
-| **NoSQL Database** | `None` · `MongoDB` · `Redis` | Includes Mongoose/ioredis, connection, models, schemas |
-| **Pub/Sub Provider** | `None` · `Kafka` · `Redis` · `RabbitMQ` | Includes producer/consumer with full config |
-| **Artifact Registry** | `GHCR` · `Docker Hub` · `ECR` · `GCR` · `ACR` | CI login steps, push targets, Helm values |
-| **Enable HPA** | boolean (default `true`) | Includes HorizontalPodAutoscaler in Helm chart |
+| `ENABLE_SQL` | `false` | PostgreSQL/MySQL connection init & shutdown in `src/index.ts` |
+| `ENABLE_MONGO` | `false` | MongoDB connection init & shutdown in `src/index.ts` |
+| `ENABLE_KAFKA` | `false` | Kafka producer/consumer availability |
+| `ENABLE_REDIS` | `false` | Redis pub/sub availability |
+| `ENABLE_RABBITMQ` | `false` | RabbitMQ pub/sub availability |
+| `ENABLE_AUTH` | `false` | Auth middleware for `/api/*` routes |
+| `ENABLE_RATE_LIMIT` | `true` | Express rate limiter |
+| `ENABLE_RESILIENCE` | `false` | Timeouts/retries/circuit-breaker helpers |
+| `ENABLE_INTEGRATIONS` | `false` | Typed outbound API client scaffolding |
+| `ENABLE_JOBS` | `false` | Background scheduler startup |
+| `ENABLE_CACHE` | `false` | In-memory cache module startup |
+| `ENABLE_AUTHZ` | `false` | RBAC/policy module startup |
 
-Only the modules you choose are included in the generated repository — there's no dead code for unused providers.
+**How it works:** `src/config/server.ts` reads the flags from `process.env`, and `src/index.ts` conditionally initializes and shuts down each module:
 
-### Fork Template
+```typescript
+// src/config/server.ts
+enableSql: process.env.ENABLE_SQL === 'true',
+enableMongo: process.env.ENABLE_MONGO === 'true',
+enableKafka: process.env.ENABLE_KAFKA === 'true',
+enableJobs: process.env.ENABLE_JOBS === 'true',
+enableCache: process.env.ENABLE_CACHE === 'true',
 
-The **Fork Template** (`backstage/fork-template.yaml`) lets teams fork an already-scaffolded repo into their own GitHub organization directly from the Backstage UI. This is useful when:
+// src/index.ts — startup
+if (serverConfig.enableSql) {
+  sqlConnection();
+}
+if (serverConfig.enableMongo) {
+  await connectMongo();
+}
+if (serverConfig.enableJobs) {
+  startJobs();
+}
+```
 
-- A **platform team** maintains a golden Node.js repo and wants product teams to fork it.
-- You want to **distribute updates** — teams can later pull upstream changes.
-- An org mandates a standard starting point but each team owns their fork.
+**Disabling a module:** Set the flag to `false` in your `.env`, Helm values, or Docker run command:
 
-Usage: Register `fork-template.yaml` in Backstage, and developers will see a "Fork Node.js Backend Application" option in the **Create** page.
+```bash
+# .env — basic local run with no external services
+ENABLE_SQL=false
+ENABLE_MONGO=false
+ENABLE_KAFKA=false
+ENABLE_AUTH=false
+ENABLE_JOBS=false
+ENABLE_CACHE=false
+ENABLE_RESILIENCE=false
+ENABLE_INTEGRATIONS=false
+ENABLE_AUTHZ=false
+
+# Docker
+docker run -e ENABLE_SQL=false -e ENABLE_MONGO=false -e ENABLE_KAFKA=false -e ENABLE_AUTH=false -e ENABLE_JOBS=false example-service:latest
+
+# Helm
+helm upgrade --install myapp ./helm/example-service \
+  --set env.ENABLE_SQL=false \
+  --set env.ENABLE_MONGO=false \
+  --set env.ENABLE_KAFKA=false \
+  --set env.ENABLE_AUTH=false \
+  --set env.ENABLE_JOBS=false
+```
+
+The flags are pre-configured in:
+- **`.env.example`** — safe defaults for local runs (`SQL/MONGO/KAFKA/AUTH=false`)
+- **`Dockerfile`** — same safe defaults, overridable at runtime
+- **`helm/example-service/values.yaml`** — under `env:` section
+
+> **Note:** Disabling a module only skips its initialization at startup — the source code is still present. If you want to fully remove a module (including its code and dependencies), see the next section.
+
+### Switching Database or Pub/Sub Provider
+
+If you don't need a particular provider, you can either **disable it at runtime** using feature flags (see above) or **fully remove** its directory and update the barrel exports:
+
+| To remove | Delete directory | Update export in |
+|---|---|---|
+| SQL (PostgreSQL/MySQL) | `src/database/sql/` | `src/database/index.ts`, `src/index.ts` (remove SQL init/shutdown) |
+| MongoDB | `src/database/nosql/` | `src/database/index.ts`, `src/index.ts` (remove Mongo init/shutdown) |
+| Kafka | `src/pubsub/kafka/` | `src/pubsub/index.ts` |
+| Redis Pub/Sub | `src/pubsub/redis/` | `src/pubsub/index.ts` |
+| RabbitMQ | `src/pubsub/rabbitmq/` | `src/pubsub/index.ts` |
+
+Also remove the corresponding dependencies from `package.json` (`pg`, `knex`, `mongoose`, `kafkajs`, `ioredis`, `amqplib`) and the env vars from `.env.example`.
+
+> **Tip:** Alternatively, use the Backstage template (`backstage/template.yaml`) to scaffold a new repo with the feature-flag defaults you want. Modules remain present as scaffolds and only activate when enabled. See [`backstage/README.md`](backstage/README.md) for details.
 
 ---
 
@@ -441,6 +609,20 @@ Shared TypeScript interfaces used across modules:
 
 ---
 
+### Optional Enterprise Modules
+
+These modules are ready-to-use scaffolds and are controlled by feature flags in `src/config/server.ts`:
+
+| Module | Flag | What You Get |
+|---|---|---|
+| `src/resilience/` | `ENABLE_RESILIENCE` | Timeout helper, retry helper, simple circuit breaker |
+| `src/integrations/` | `ENABLE_INTEGRATIONS` | Typed HTTP client + sample external API client |
+| `src/jobs/` | `ENABLE_JOBS` | In-process scheduler + sample recurring cleanup job |
+| `src/cache/` | `ENABLE_CACHE` | In-memory TTL cache service with periodic cleanup |
+| `src/authz/` | `ENABLE_AUTHZ` | RBAC helpers and reusable policy guards |
+
+`src/index.ts` initializes/shuts these modules down only when their flags are set to `true`.
+
 ### 8. Tests (`tests/`)
 
 | File | Type | Description |
@@ -502,7 +684,7 @@ A complete Kubernetes deployment chart:
 | `ingress.yaml` | Ingress | Optional nginx ingress with TLS support |
 | `hpa.yaml` | HPA | CPU/memory-based autoscaling (2–10 pods default) |
 | `configmap.yaml` | ConfigMap | Non-sensitive env vars (NODE_ENV, PORT, LOG_LEVEL) |
-| `secret.yaml` | Secret | Sensitive env vars (passwords, API keys) — base64 encoded |
+| `secret.yaml` | Secret | Sensitive env vars loaded from `values-secret.yaml` (SOPS-encrypted) |
 | `_helpers.tpl` | Helpers | Template functions for names, labels, selectors |
 
 **Usage:**
@@ -510,16 +692,27 @@ A complete Kubernetes deployment chart:
 # Dry-run to preview manifests
 helm template myapp ./helm/myapp
 
-# Install
-helm upgrade --install myapp ./helm/myapp \
+# Install helm-secrets plugin (one-time)
+helm plugin install https://github.com/jkroepke/helm-secrets --version v4.6.0
+
+# Create or edit secret values (uses your local SOPS key material)
+sops helm/myapp/values-secret.yaml
+
+# Example: encrypt with GPG (one-time key setup + encrypt file)
+gpg --full-generate-key
+gpg --list-secret-keys --keyid-format=long
+export SOPS_PGP_FP="<YOUR_GPG_FINGERPRINT>"
+sops --encrypt --in-place --pgp "$SOPS_PGP_FP" helm/myapp/values-secret.yaml
+
+# First install (includes regular values + SOPS secret values + runtime params)
+helm secrets upgrade --install myapp ./helm/myapp \
   --namespace production \
+  --create-namespace \
+  -f helm/myapp/values.yaml \
+  -f helm/myapp/values-secret.yaml \
   --set image.tag=sha-abc1234 \
   --set ingress.enabled=true \
   --set ingress.hosts[0].host=myapp.example.com
-
-# Override secrets
-helm upgrade --install myapp ./helm/myapp \
-  --set secrets.SQL_PASSWORD=supersecret
 ```
 
 **How to Extend:**
@@ -691,12 +884,30 @@ See [`.env.example`](.env.example) for the full list. Key variables:
 | `NODE_ENV` | `development` | Environment (`development`, `production`, `test`) |
 | `PORT` | `3000` | HTTP server port |
 | `LOG_LEVEL` | `info` | Winston log level (`error`, `warn`, `info`, `http`, `debug`) |
+| `ENABLE_SQL` | `false` | Enable SQL connection module |
+| `ENABLE_MONGO` | `false` | Enable MongoDB connection module |
+| `ENABLE_KAFKA` | `false` | Enable Kafka pub/sub module |
+| `ENABLE_REDIS` | `false` | Enable Redis pub/sub module |
+| `ENABLE_RABBITMQ` | `false` | Enable RabbitMQ pub/sub module |
+| `ENABLE_AUTH` | `false` | Enable auth middleware on `/api/*` |
+| `ENABLE_RATE_LIMIT` | `true` | Enable request rate limiting middleware |
+| `ENABLE_RESILIENCE` | `false` | Enable resilience module initialization |
+| `ENABLE_INTEGRATIONS` | `false` | Enable integrations client module initialization |
+| `ENABLE_JOBS` | `false` | Start background jobs scheduler |
+| `ENABLE_CACHE` | `false` | Enable cache module initialization |
+| `ENABLE_AUTHZ` | `false` | Enable authorization module initialization |
 | `SQL_HOST` | `localhost` | SQL database host |
 | `SQL_PASSWORD` | — | SQL database password |
-| `MONGO_URI` | `mongodb://localhost:27017/app` | MongoDB connection URI |
+| `MONGO_URI` | `mongodb://localhost:27017/example-service` | MongoDB connection URI |
 | `REDIS_HOST` | `localhost` | Redis host |
 | `KAFKA_BROKERS` | `localhost:9092` | Comma-separated Kafka broker list |
 | `RABBITMQ_URL` | `amqp://guest:guest@localhost:5672` | RabbitMQ connection URL |
+| `RESILIENCE_TIMEOUT_MS` | `3000` | Default timeout for resilient operations |
+| `RESILIENCE_RETRIES` | `3` | Retry attempts for resilient operations |
+| `INTEGRATIONS_EXAMPLE_API_BASE_URL` | `https://jsonplaceholder.typicode.com` | Sample outbound API base URL |
+| `JOBS_SAMPLE_INTERVAL_MS` | `60000` | Sample background job interval |
+| `CACHE_DEFAULT_TTL_SECONDS` | `60` | Default cache TTL for in-memory cache |
+| `AUTHZ_DEFAULT_ROLE` | `viewer` | Default role used by authz helpers |
 
 ---
 

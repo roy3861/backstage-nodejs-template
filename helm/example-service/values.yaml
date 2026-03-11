@@ -1,0 +1,140 @@
+# -- Number of replicas
+replicaCount: 2
+
+image:
+  repository: ghcr.io/OWNER/example-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: example-service.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: 80
+
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 15
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+# -- Non-sensitive environment variables (injected via ConfigMap)
+env:
+  APP_NAME: "example-service"
+  # NODE_ENV and PORT are already set in configmap.yaml
+  # ── Module Feature Flags (set to "true" to enable, "false" to disable) ──
+  ENABLE_SQL: "false"
+  ENABLE_MONGO: "false"
+  ENABLE_KAFKA: "false"
+  ENABLE_REDIS: "false"
+  ENABLE_RABBITMQ: "false"
+  ENABLE_AUTH: "false"
+  ENABLE_RATE_LIMIT: "true"
+  ENABLE_RESILIENCE: "false"
+  ENABLE_INTEGRATIONS: "false"
+  ENABLE_JOBS: "false"
+  ENABLE_CACHE: "false"
+  ENABLE_AUTHZ: "false"
+  # ── PostgreSQL (only used when ENABLE_SQL=true) ──
+  SQL_HOST: "localhost"
+  SQL_PORT: "5432"
+  SQL_DATABASE: "example-service"
+  SQL_USER: "postgres"
+  SQL_POOL_MIN: "2"
+  SQL_POOL_MAX: "10"
+  SQL_SSL: "false"
+  # ── MongoDB (only used when ENABLE_MONGO=true) ──
+  MONGO_URI: "mongodb://localhost:27017/example-service"
+  MONGO_OPTIONS: "retryWrites=true&w=majority"
+  # ── Kafka (only used when ENABLE_KAFKA=true) ──
+  KAFKA_BROKERS: "localhost:9092"
+  KAFKA_CLIENT_ID: "example-service"
+  KAFKA_GROUP_ID: "example-service-group"
+  KAFKA_SSL: "false"
+  # ── Redis (only used when ENABLE_REDIS=true) ──
+  REDIS_HOST: "localhost"
+  REDIS_PORT: "6379"
+  REDIS_TLS: "false"
+  # ── RabbitMQ (only used when ENABLE_RABBITMQ=true) ──
+  RABBITMQ_URL: "amqp://guest:guest@localhost:5672"
+  RABBITMQ_EXCHANGE: "example-service.exchange"
+  RABBITMQ_QUEUE: "example-service.queue"
+  # ── Resilience (only used when ENABLE_RESILIENCE=true) ──
+  RESILIENCE_TIMEOUT_MS: "3000"
+  RESILIENCE_RETRIES: "3"
+  RESILIENCE_RETRY_DELAY_MS: "200"
+  RESILIENCE_BREAKER_FAILURE_THRESHOLD: "5"
+  RESILIENCE_BREAKER_RESET_TIMEOUT_MS: "10000"
+  # ── Integrations (only used when ENABLE_INTEGRATIONS=true) ──
+  INTEGRATIONS_EXAMPLE_API_BASE_URL: "https://jsonplaceholder.typicode.com"
+  INTEGRATIONS_TIMEOUT_MS: "3000"
+  # ── Jobs (only used when ENABLE_JOBS=true) ──
+  JOBS_SAMPLE_INTERVAL_MS: "60000"
+  # ── Cache (only used when ENABLE_CACHE=true) ──
+  CACHE_DEFAULT_TTL_SECONDS: "60"
+  CACHE_MAX_ITEMS: "1000"
+  CACHE_CLEANUP_INTERVAL_MS: "30000"
+  # ── Authorization (only used when ENABLE_AUTHZ=true) ──
+  AUTHZ_DEFAULT_ROLE: "viewer"
+  AUTHZ_TENANT_HEADER: "x-tenant-id"
+
+# -- Sensitive environment variables (inject via a SOPS-encrypted values-secret.yaml)
+secrets: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

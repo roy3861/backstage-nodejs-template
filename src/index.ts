@@ -9,14 +9,8 @@ import { serverConfig } from './config/server';
 import { createApiRouter } from './api';
 import { errorHandler } from './api/middleware/error-handler';
 import { requestLogger } from './api/middleware/logging';
+import { authMiddleware } from './api/middleware/auth';
 import { logger } from './utils/logger';
-
-{% if values.sqlDatabase != 'none' -%}
-import { sqlConnection, closeSqlConnection } from './database/sql/connection';
-{% endif -%}
-{% if values.nosqlDatabase == 'mongodb' -%}
-import { connectMongo, closeMongo } from './database/nosql/connection';
-{% endif -%}
 
 const app = express();
 
@@ -29,14 +23,21 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(requestLogger);
 
-app.use(
-  rateLimit({
-    windowMs: serverConfig.rateLimit.windowMs,
-    max: serverConfig.rateLimit.max,
-    standardHeaders: true,
-    legacyHeaders: false,
-  }),
-);
+if (serverConfig.enableRateLimit) {
+  app.use(
+    rateLimit({
+      windowMs: serverConfig.rateLimit.windowMs,
+      max: serverConfig.rateLimit.max,
+      standardHeaders: true,
+      legacyHeaders: false,
+    }),
+  );
+}
+
+if (serverConfig.enableAuth) {
+  // Keep health probes unauthenticated; protect API routes only.
+  app.use('/api', authMiddleware);
+}
 
 // --------------- Routes ---------------
 app.use(createApiRouter());
@@ -47,21 +48,59 @@ app.use(errorHandler);
 // --------------- Start Server ---------------
 async function start(): Promise<void> {
   try {
-{% if values.sqlDatabase != 'none' %}
-    // Initialize SQL connection
-    sqlConnection();
-    logger.info('SQL database initialized');
-{% endif %}
-{% if values.nosqlDatabase == 'mongodb' %}
-    // Initialize MongoDB connection
-    await connectMongo();
-    logger.info('MongoDB initialized');
-{% endif %}
+    if (serverConfig.enableSql) {
+      const { sqlConnection } = await import('./database/sql/connection');
+      sqlConnection();
+      logger.info('SQL database initialized');
+    }
+
+    if (serverConfig.enableMongo) {
+      const { connectMongo } = await import('./database/nosql/connection');
+      await connectMongo();
+      logger.info('MongoDB initialized');
+    }
+
+    if (serverConfig.enableResilience) {
+      const { initializeResilience } = await import('./resilience');
+      initializeResilience();
+    }
+
+    if (serverConfig.enableIntegrations) {
+      const { initializeIntegrations } = await import('./integrations');
+      initializeIntegrations();
+    }
+
+    if (serverConfig.enableCache) {
+      const { initializeCache } = await import('./cache');
+      initializeCache();
+    }
+
+    if (serverConfig.enableAuthz) {
+      const { initializeAuthz } = await import('./authz');
+      initializeAuthz();
+    }
+
+    if (serverConfig.enableJobs) {
+      const { startJobs } = await import('./jobs');
+      startJobs();
+    }
 
     app.listen(serverConfig.port, () => {
-      logger.info(`🚀 ${{ values.name }} running on port ${serverConfig.port}`, {
+      logger.info(`🚀 example-service running on port ${serverConfig.port}`, {
         env: serverConfig.env,
         port: serverConfig.port,
+        sql: serverConfig.enableSql,
+        mongo: serverConfig.enableMongo,
+        kafka: serverConfig.enableKafka,
+        redis: serverConfig.enableRedis,
+        rabbitmq: serverConfig.enableRabbitmq,
+        auth: serverConfig.enableAuth,
+        resilience: serverConfig.enableResilience,
+        integrations: serverConfig.enableIntegrations,
+        cache: serverConfig.enableCache,
+        authz: serverConfig.enableAuthz,
+        jobs: serverConfig.enableJobs,
+        rateLimit: serverConfig.enableRateLimit,
       });
     });
   } catch (error) {
@@ -74,12 +113,34 @@ async function start(): Promise<void> {
 async function shutdown(signal: string): Promise<void> {
   logger.info(`${signal} received — shutting down gracefully`);
 
-{% if values.sqlDatabase != 'none' %}
-  await closeSqlConnection();
-{% endif %}
-{% if values.nosqlDatabase == 'mongodb' %}
-  await closeMongo();
-{% endif %}
+  if (serverConfig.enableSql) {
+    const { closeSqlConnection } = await import('./database/sql/connection');
+    await closeSqlConnection();
+  }
+  if (serverConfig.enableMongo) {
+    const { closeMongo } = await import('./database/nosql/connection');
+    await closeMongo();
+  }
+  if (serverConfig.enableJobs) {
+    const { stopJobs } = await import('./jobs');
+    await stopJobs();
+  }
+  if (serverConfig.enableCache) {
+    const { shutdownCache } = await import('./cache');
+    shutdownCache();
+  }
+  if (serverConfig.enableIntegrations) {
+    const { shutdownIntegrations } = await import('./integrations');
+    shutdownIntegrations();
+  }
+  if (serverConfig.enableResilience) {
+    const { shutdownResilience } = await import('./resilience');
+    shutdownResilience();
+  }
+  if (serverConfig.enableAuthz) {
+    const { shutdownAuthz } = await import('./authz');
+    shutdownAuthz();
+  }
 
   process.exit(0);
 }

@@ -1,7 +1,7 @@
 {
-  "name": "${{ values.name }}",
+  "name": "example-service",
   "version": "1.0.0",
-  "description": "${{ values.description }}",
+  "description": "An example Node.js backend service",
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
@@ -9,8 +9,8 @@
     "start": "node dist/index.js",
     "test": "jest --coverage",
     "test:watch": "jest --watch",
-    "lint": "eslint src/ --ext .ts",
-    "lint:fix": "eslint src/ --ext .ts --fix",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
     "typecheck": "tsc --noEmit",
     "migrate": "knex migrate:latest --knexfile src/database/sql/knexfile.ts",
     "migrate:rollback": "knex migrate:rollback --knexfile src/database/sql/knexfile.ts"
@@ -27,25 +27,12 @@
     "express-validator": "^7.0.1",
     "hpp": "^0.2.3",
     "http-status-codes": "^2.3.0",
-{%- if values.sqlDatabase == 'postgresql' %}
     "knex": "^3.1.0",
     "pg": "^8.11.3",
-{%- elif values.sqlDatabase == 'mysql' %}
-    "knex": "^3.1.0",
-    "mysql2": "^3.6.5",
-{%- endif %}
-{%- if values.nosqlDatabase == 'mongodb' %}
     "mongoose": "^8.0.3",
-{%- endif %}
-{%- if values.nosqlDatabase == 'redis' or values.pubsubProvider == 'redis' %}
-    "ioredis": "^5.3.2",
-{%- endif %}
-{%- if values.pubsubProvider == 'kafka' %}
     "kafkajs": "^2.2.4",
-{%- endif %}
-{%- if values.pubsubProvider == 'rabbitmq' %}
-    "amqplib": "^0.10.3",
-{%- endif %}
+    "ioredis": "^5.4.1",
+    "amqplib": "^0.10.4",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
@@ -55,22 +42,19 @@
     "@types/morgan": "^1.9.9",
     "@types/hpp": "^0.2.5",
     "@types/uuid": "^9.0.7",
-    "@types/node": "^${{ values.nodeVersion }}.0.0",
+    "@types/amqplib": "^0.10.6",
+    "@types/node": "^20.0.0",
     "@types/jest": "^29.5.11",
-{%- if values.pubsubProvider == 'rabbitmq' %}
-    "@types/amqplib": "^0.10.4",
-{%- endif %}
     "typescript": "^5.3.3",
     "ts-node-dev": "^2.0.0",
     "ts-jest": "^29.1.1",
     "jest": "^29.7.0",
-    "eslint": "^8.56.0",
-    "@typescript-eslint/eslint-plugin": "^6.15.0",
-    "@typescript-eslint/parser": "^6.15.0",
-    "supertest": "^6.3.3",
+    "eslint": "^9.32.0",
+    "typescript-eslint": "^8.56.0",
+    "supertest": "^7.2.2",
     "@types/supertest": "^6.0.1"
   },
   "engines": {
-    "node": ">=${{ values.nodeVersion }}.0.0"
+    "node": ">=20.0.0"
   }
 }

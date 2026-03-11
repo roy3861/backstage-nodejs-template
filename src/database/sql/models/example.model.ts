@@ -1,4 +1,3 @@
-{% if values.sqlDatabase != 'none' -%}
 import { Knex } from 'knex';
 import { sqlConnection } from '../connection';
 import { v4 as uuidv4 } from 'uuid';
@@ -59,7 +58,3 @@ export class ExampleSqlModel {
     return count > 0;
   }
 }
-{% else -%}
-// SQL model not configured.
-export {};
-{% endif -%}
