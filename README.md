@@ -930,4 +930,4 @@ See [`.env.example`](.env.example) for the full list. Key variables:
 
 ## License
 
-This template is provided as-is for internal use. Add your license here.
+This template is provided as-is for Learning purpose. 
