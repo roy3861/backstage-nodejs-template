@@ -1,0 +1,11 @@
+# Use for Backstage TechDocs Integartion
+site_name: example-service
+site_description: Documentation for example-service
+docs_dir: .
+
+nav:
+  - Home: README.md
+  - Backstage Integration: backstage/README.md
+
+plugins:
+  - techdocs-core

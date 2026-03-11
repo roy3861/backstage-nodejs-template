@@ -27,11 +27,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
 
       - name: Install & Test
         run: |
-          npm ci
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            echo "package-lock.json not found, falling back to npm install"
+            npm install
+          fi
           npm test
 
       - name: Set up Docker Buildx
