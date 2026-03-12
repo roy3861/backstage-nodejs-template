@@ -77,7 +77,7 @@ jobs:
           rm -rf /var/lib/apt/lists/*
 
       - name: Run Trivy vulnerability scanner (filesystem)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@latest
         with:
           scan-type: fs
           scan-ref: .
