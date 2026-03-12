@@ -20,14 +20,11 @@ jobs:
   # ────────────────────────────────────────────────────
   test:
     name: Lint & Test
-    runs-on: node:20-trixie-slim
+    runs-on: ubuntu-latest
+    container:
+      image: node:20-trixie-slim
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
         run: npm install --include=dev
@@ -53,15 +50,12 @@ jobs:
   # ────────────────────────────────────────────────────
   security-scan:
     name: Security Scan
-    runs-on: node:20-trixie-slim
+    runs-on: ubuntu-latest
+    container:
+      image: node:20-trixie-slim
     needs: test
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
         run: npm install --include=dev
