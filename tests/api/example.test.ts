@@ -66,4 +66,17 @@ describe('Example API Endpoints', () => {
     const res = await request(app).get(`/api/v1/examples/${createdId}`);
     expect(res.status).toBe(404);
   });
+
+  it('PUT /api/v1/examples/:id should return 404 for missing item', async () => {
+    const res = await request(app)
+      .put('/api/v1/examples/non-existent-id')
+      .send({ name: 'Updated Item' });
+
+    expect(res.status).toBe(404);
+  });
+
+  it('DELETE /api/v1/examples/:id should return 404 for missing item', async () => {
+    const res = await request(app).delete('/api/v1/examples/non-existent-id');
+    expect(res.status).toBe(404);
+  });
 });
