@@ -70,6 +70,12 @@ jobs:
         run: npm audit --audit-level=high
         continue-on-error: true
 
+      - name: Install curl for Trivy
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends curl
+          rm -rf /var/lib/apt/lists/*
+
       - name: Run Trivy vulnerability scanner (filesystem)
         uses: aquasecurity/trivy-action@master
         with:
