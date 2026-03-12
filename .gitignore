@@ -33,3 +33,6 @@ Thumbs.db
 *.tgz
 .cache/
 tmp/
+
+# package-lock.json
+package-lock-local.json
