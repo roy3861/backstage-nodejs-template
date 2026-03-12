@@ -9,11 +9,21 @@ export function validateRequest(req: Request, res: Response, next: NextFunction)
     res.status(StatusCodes.BAD_REQUEST).json({
       error: {
         message: 'Validation failed',
-        details: errors.array().map((err) => ({
-          field: (err as any).path,
-          message: err.msg,
-          value: (err as any).value,
-        })),
+        details: errors.array().map((err) => {
+          const detail: { field?: string; message: string; value?: unknown } = {
+            message: err.msg,
+          };
+
+          if ('path' in err) {
+            detail.field = err.path;
+          }
+
+          if ('value' in err) {
+            detail.value = err.value;
+          }
+
+          return detail;
+        }),
       },
     });
     return;
