@@ -26,8 +26,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Pin npm version
+        run: npm install -g npm@9.9.4
+
       - name: Install dependencies
-        run: npm ci --include=dev --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Lint
         run: npm run lint
@@ -57,8 +60,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Pin npm version
+        run: npm install -g npm@9.9.4
+
       - name: Install dependencies
-        run: npm ci --include=dev --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: NPM Audit
         run: npm audit --audit-level=high
